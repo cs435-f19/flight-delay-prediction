@@ -15,10 +15,16 @@ public class JoinDatasets {
             System.exit(0);
         }
 
-        File file = new File(args[0]);
-        Scanner scan = new Scanner(file);
+        List<String[]> stations = readStationsFromFile(args[0]);
 
+        stations.forEach(strings -> System.out.println(Arrays.toString(strings)));
+    }
+
+    private static List<String[]> readStationsFromFile(String arg) throws FileNotFoundException {
         List<String[]> stations = new ArrayList<>();
+
+        File file = new File(arg);
+        Scanner scan = new Scanner(file);
 
         while (scan.hasNextLine()) {
             String line = scan.nextLine();
@@ -47,8 +53,7 @@ public class JoinDatasets {
 
             stations.add(new String[]{usaf, lat, lon});
         }
-
-        stations.forEach(strings -> System.out.println(Arrays.toString(strings)));
+        return stations;
     }
 
 }
