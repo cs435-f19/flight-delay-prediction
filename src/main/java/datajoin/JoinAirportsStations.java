@@ -5,7 +5,7 @@ import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JoinDatasets {
+public class JoinAirportsStations {
 
     private static final String LINE_SEP = System.lineSeparator();
 
