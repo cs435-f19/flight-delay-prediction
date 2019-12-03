@@ -133,7 +133,9 @@ public class JoinDatasets {
             String line = scan.nextLine();
             if (line.isEmpty()) continue;
 
-            String usaf = line.substring(0, line.indexOf(" "));
+            int i = line.indexOf(" ");
+            i = line.indexOf(" ", i + 1);
+            String usaf = line.substring(0, i).replaceAll("\\s+", "");
 
             Matcher matcher = regex.matcher(line);
 
