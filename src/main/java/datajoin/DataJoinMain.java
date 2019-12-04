@@ -25,13 +25,14 @@ public class DataJoinMain {
 
         long t = System.currentTimeMillis();
 
+        System.setProperty("hadoop.home.dir", "C:\\hadoop"); // Needed for windows being able to save to file
         SparkSession spark = SparkSession.builder().appName("Flight Delay Dataset Join").config("spark.master", "local").getOrCreate();
 
         Dataset<Row> joined = loadAndJoinAllDatasets(args[0], args[1], args[2], spark);
 
-        joined.show(100);
+//        joined.show(100);
 
-        if (args.length >= 4) joined.coalesce(1).write().mode(SaveMode.Overwrite).option("mapreduce.fileoutputcommitter.marksuccessfuljobs", false).option("header", true).csv(args[3]);
+        if (args.length >= 4) joined.coalesce(8).write().mode(SaveMode.Overwrite).option("mapreduce.fileoutputcommitter.marksuccessfuljobs", false).option("header", true).csv(args[3]);
 
         System.out.println("Runtime: " + (System.currentTimeMillis() - t) / 1000.0 + " seconds");
     }
