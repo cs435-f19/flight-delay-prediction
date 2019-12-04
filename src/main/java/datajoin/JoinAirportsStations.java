@@ -1,27 +1,49 @@
 package datajoin;
 
-import java.io.File;
-import java.io.FileNotFoundException;
+import java.io.*;
 import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
-public class JoinDatasets {
+public class JoinAirportsStations {
 
-    public static void main(String[] args) throws FileNotFoundException {
+    private static final String LINE_SEP = System.lineSeparator();
+
+
+    public static void main(String[] args) throws IOException {
         if (args.length < 2) {
-            System.out.println("Required args");
+            System.out.println("Required args:   STATIONS_FILE AIRPORTS_FILE OUTPUT_FILE");
+            System.out.println("Output is CSV of the form:\n" +
+                    "\tAirport_Callsign,Airport_Lat,Airport_Long,Weather_Station_USAF");
             System.exit(1);
         }
 
+        long t = System.currentTimeMillis();
         List<String[]> stations = readStationsFromFile(args[0]);
         List<String[]> airports = readAirportsFromFile(args[1]);
 
-        System.out.println(stations.size());
-        System.out.println(airports.size());
+        System.out.println("Stations: " + stations.size());
+        System.out.println("Airports: " + airports.size());
 
         List<String[]> joined = combineAirportsAndStations(stations, airports);
-        System.out.println(joined.size());
+        System.out.println("Airports with Stations: " + joined.size());
+
+        writeCombinedToCSV(joined, args[2], new String[]{"airport", "a_lat", "a_lon", "station", "s_lat", "s_lon", "station_dist"});
+
+        System.out.println((System.currentTimeMillis() - t) / 1000.0 + " seconds");
+    }
+
+    private static void writeCombinedToCSV(List<String[]> joined, String path, String[] headers) throws IOException {
+        BufferedWriter bw = new BufferedWriter(new FileWriter(path));
+
+        bw.write(String.join(",", headers) + LINE_SEP);
+
+        for (String[] data : joined) {
+            bw.write( String.join(",", data) + LINE_SEP);
+        }
+
+        bw.flush();
+        bw.close();
     }
 
     private static List<String[]> combineAirportsAndStations(List<String[]> stations, List<String[]> airports) {
@@ -48,8 +70,10 @@ public class JoinDatasets {
                 }
             }
 
+            if (closest == null) continue;
+
 //            System.out.println(Arrays.toString(closest) + "\t" + Arrays.toString(airport) + "\t" + dist);
-            results.add(new String[]{airport[0], airport[1], airport[2], closest[0], closest[1], closest[2]});
+            results.add(new String[]{airport[0], airport[1], airport[2], closest[0], closest[1], closest[2], dist + ""});
         }
 
         return results;
@@ -62,14 +86,10 @@ public class JoinDatasets {
         lat1 = Math.toRadians(lat1);
         lat2 = Math.toRadians(lat2);
 
-        double a = haversin(dLat) + Math.cos(lat1) * Math.cos(lat2) * haversin(dLon);
+        double a = Math.sin(dLat / 2) * Math.sin(dLat / 2) + Math.cos(lat1) * Math.cos(lat2) * Math.sin(dLon / 2) * Math.sin(dLon / 2);
         double c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 
         return 6371 * c;
-    }
-
-    private static double haversin(double val) {
-        return Math.sin(val / 2) * Math.sin(val / 2);
     }
 
     private static List<String[]> readAirportsFromFile(String file) throws FileNotFoundException {
@@ -92,6 +112,8 @@ public class JoinDatasets {
             airports.add(new String[]{iata, split[4], split[5]});
         }
 
+        scan.close();
+
         return airports;
     }
 
@@ -102,11 +124,18 @@ public class JoinDatasets {
 
         Pattern regex = Pattern.compile("\\s[-+][0-9]+\\.[0-9]+");
 
+        // Skip first 22 useless lines
+        for (int i = 0; i < 22; i++) {
+            scan.nextLine();
+        }
+
         while (scan.hasNextLine()) {
             String line = scan.nextLine();
             if (line.isEmpty()) continue;
 
-            String usaf = line.substring(0, line.indexOf(" "));
+            int i = line.indexOf(" ");
+            i = line.indexOf(" ", i + 1);
+            String usaf = line.substring(0, i).replaceAll("\\s+", "");
 
             Matcher matcher = regex.matcher(line);
 
@@ -116,26 +145,11 @@ public class JoinDatasets {
             if (!matcher.find()) continue;
             String lon = line.substring(matcher.start() + 1, matcher.end());
 
-//            int pos = line.indexOf("+", i);
-//            int neg = line.indexOf("-", i);
-//            int work = -1;
-//            if (pos >= 0) work = pos;
-//            if (neg >= 0 && neg < work) work = neg;
-//
-//            if (work < 0) continue;
-//            String lat = line.substring(work, line.indexOf(" ", work));
-//
-//            pos = line.indexOf("+", work + 1);
-//            neg = line.indexOf("-", work + 1);
-//            work = -1;
-//            if (pos >= 0) work = pos;
-//            if (neg >= 0 && neg < work) work = neg;
-//
-//            if (work < 0) continue;
-//            String lon = line.substring(work, line.indexOf(" ", work));
-
             stations.add(new String[]{usaf, lat, lon});
         }
+
+        scan.close();
+
         return stations;
     }
 
