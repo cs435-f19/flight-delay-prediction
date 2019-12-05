@@ -1,5 +1,16 @@
 package randomforest;
 
+import org.apache.spark.api.java.JavaRDD;
+import org.apache.spark.ml.Pipeline;
+import org.apache.spark.ml.PipelineModel;
+import org.apache.spark.ml.PipelineStage;
+import org.apache.spark.ml.evaluation.RegressionEvaluator;
+import org.apache.spark.ml.feature.LabeledPoint;
+import org.apache.spark.ml.feature.VectorIndexer;
+import org.apache.spark.ml.feature.VectorIndexerModel;
+
+
+import org.apache.spark.ml.regression.RandomForestRegressionModel;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -9,6 +20,8 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+
+import org.apache.spark.ml.regression.RandomForestRegressor;
 
 /**
  * Columns are case sensitive.
@@ -67,14 +80,58 @@ public class RandomForestDelay {
         }
 
         long t = System.currentTimeMillis();
-
+//
         SparkSession spark = SparkSession.builder().appName("Flight Delay Dataset Join").config("spark.master", "local").getOrCreate();
+//
+//        Dataset<Row> dataset = loadDelayDataset(args[0], spark);
 
-        Dataset<Row> dataset = loadDelayDataset(args[0], spark);
+        //dataset.show(100); // Pretty-print first 100 elements in dataset.
 
-        dataset.show(100); // Pretty-print first 100 elements in dataset.
+        //Current random forest regression made by:
+        //https://spark.apache.org/docs/latest/ml-classification-regression.html
 
-        // TODO random forest implementation
+        Dataset<Row> dataset = spark.read().format("libsvm").load(args[0]);
+
+        VectorIndexerModel featureIndexer = new VectorIndexer()
+                .setInputCol("features")
+                .setOutputCol("indexedFeatures")
+                .setMaxCategories(4)
+                .fit(dataset);
+
+        //Split data 90/10
+        Dataset<Row>[] dataSplit = dataset.randomSplit(new double[] {0.9, 0.1});
+        Dataset<Row> trainData = dataSplit[0];
+        Dataset<Row> testData = dataSplit[1];
+
+        // Train a RandomForest model.
+        RandomForestRegressor rf = new RandomForestRegressor()
+                .setLabelCol("label")
+                .setFeaturesCol("indexedFeatures");
+
+        Pipeline pipeline = new Pipeline()
+                .setStages(new PipelineStage[] {featureIndexer, rf});
+        PipelineModel model = pipeline.fit(trainData);
+        Dataset<Row> predictions = model.transform(testData);
+        predictions.select("prediction", "label", "features").show(100);
+
+        RegressionEvaluator evaluator = new RegressionEvaluator()
+                .setLabelCol("label")
+                .setPredictionCol("prediction")
+                .setMetricName("rmse");
+        double rmse = evaluator.evaluate(predictions);
+        System.out.println("Root Mean Squared Error (RMSE) on test data = " + rmse);
+
+        //RandomForestRegressionModel rfModel = (RandomForestRegressionModel)(model.stages()[1]);
+        //System.out.println("Learned regression forest model:\n" + rfModel.toDebugString());
+
+//        //Train a RandomForest model.
+//        RandomForestRegressor rf = new RandomForestRegressor().setLabelCol("WEATHER_DELAY").setFeaturesCol("ORIGIN_PRCP");
+//
+//        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[] {rf});
+//        PipelineModel model = pipeline.fit(trainData);
+//        Dataset<Row> predictions = model.transform(testData);
+//
+//        predictions.show(20);
 
         System.out.println("Runtime: " + (System.currentTimeMillis() - t) / 1000.0 + " seconds");
     }
@@ -103,5 +160,7 @@ public class RandomForestDelay {
 
         return weatherCSV.persist();
     }
+
+
 
 }
