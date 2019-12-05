@@ -21,13 +21,11 @@ import java.util.List;
 import org.apache.spark.ml.regression.RandomForestRegressor;
 
 /**
- * Columns are case sensitive.
+ * Features list:
  *
- * Dataset columns:
- *
- * label : type                     example value
- * ==============================================
- * [Label]WEATHER_DELAY : int              0
+ * label : type                        example value
+ * ======================================================
+ * [Label]WEATHER_DELAY : int          0
  * [0]ORIGIN_TEMP : double             35.8
  * [1]ORIGIN_DEWP : double             24.3
  * [2]ORIGIN_SLP : double              995.9
@@ -38,27 +36,27 @@ import org.apache.spark.ml.regression.RandomForestRegressor;
  * [7]ORIGIN_GUST : double             0
  * [8]ORIGIN_MAX : double              48.9
  * [9]ORIGIN_MIN : double              28
- * [10]ORIGIN_PRCP : double             0.1
- * [11]ORIGIN_SNDP : double             0
- * [12]DEST_TEMP : double               -6.1
- * [13]DEST_DEWP : double               -11.8
- * [14]DEST_SLP : double                1004.8
- * [15]DEST_STP : double                1.5
- * [16]DEST_VISIB : double              6
- * [17]DEST_WDSP : double               15
- * [18]DEST_MXSPD : double              24.1
- * [19]DEST_GUST : double               0
- * [20]DEST_MAX : double                1.4
- * [21]DEST_MIN : double                -16.1
- * [22]DEST_PRCP : double               0
- * [23]DEST_SNDP : double               0
+ * [10]ORIGIN_PRCP : double            0.1
+ * [11]ORIGIN_SNDP : double            0
+ * [12]DEST_TEMP : double              -6.1
+ * [13]DEST_DEWP : double              -11.8
+ * [14]DEST_SLP : double               1004.8
+ * [15]DEST_STP : double               1.5
+ * [16]DEST_VISIB : double             6
+ * [17]DEST_WDSP : double              15
+ * [18]DEST_MXSPD : double             24.1
+ * [19]DEST_GUST : double              0
+ * [20]DEST_MAX : double               1.4
+ * [21]DEST_MIN : double               -16.1
+ * [22]DEST_PRCP : double              0
+ * [23]DEST_SNDP : double              0
  */
 public class RandomForestDelay {
 
 
     public static void main(String[] args) throws IOException {
         if (args.length < 1) {
-            System.out.println("Missing args:   DELAY_DATASET_CSV");
+            System.out.println("Missing args:   DELAY_DATASET_LIBSVM");
 
             System.exit(1);
         }
@@ -72,38 +70,59 @@ public class RandomForestDelay {
         //Current random forest regression made by:
         //https://spark.apache.org/docs/latest/ml-classification-regression.html
 
+        System.out.println("Spark session started.");
+        System.out.println("Loading in libsvm file...");
+
         Dataset<Row> dataset = spark.read().format("libsvm").load(args[0]);
 
-        dataset.show(100); // Pretty-print first 100 elements in dataset.
+        System.out.println("Finished reading in data!");
 
-        VectorIndexerModel featureIndexer = new VectorIndexer()
-                .setInputCol("features")
-                .setOutputCol("indexedFeatures")
-                .setMaxCategories(4)
-                .fit(dataset);
+        //dataset.show(10); // Pretty-print first 100 elements in dataset.
+
+        System.out.println("Indexing categorical features...");
+
+        //Use VectorIndexer in default mode to automatically identify categorical features and properly index them
+        VectorIndexerModel featureIndexer = new VectorIndexer().setInputCol("features").setOutputCol("indexedFeatures").setMaxCategories(4).fit(dataset);
+
+        System.out.println("Num features: " + featureIndexer.numFeatures());
+
+        System.out.println("Finished indexing categorical features!");
+        System.out.println("Splitting data...");
 
         //Split data 90/10
         Dataset<Row>[] dataSplit = dataset.randomSplit(new double[] {0.9, 0.1});
         Dataset<Row> trainData = dataSplit[0];
         Dataset<Row> testData = dataSplit[1];
 
-        // Train a RandomForest model.
-        RandomForestRegressor rf = new RandomForestRegressor()
-                .setLabelCol("label")
-                .setFeaturesCol("indexedFeatures");
+        System.out.println("Finished splitting data!");
+        System.out.println("Training random forest...");
 
-        Pipeline pipeline = new Pipeline()
-                .setStages(new PipelineStage[] {featureIndexer, rf});
+        //Create a RandomForest model using the weather data (named label) and the previously indexed features column
+        RandomForestRegressor rf = new RandomForestRegressor().setLabelCol("label").setFeaturesCol("indexedFeatures");
+
+        //Create a pipeline to allow the chaining of the indexer and random forest
+        Pipeline pipeline = new Pipeline().setStages(new PipelineStage[] {featureIndexer, rf});
+
+        //Use the pipeline to fit training data
         PipelineModel model = pipeline.fit(trainData);
-        Dataset<Row> predictions = model.transform(testData);
-        predictions.select("prediction", "label", "features").show(100);
 
-        RegressionEvaluator evaluator = new RegressionEvaluator()
-                .setLabelCol("label")
-                .setPredictionCol("prediction")
-                .setMetricName("rmse");
+        System.out.println("Finished training random forest!");
+        System.out.println("Running random forest against test data...");
+
+        //Do a test data comparison to see the accuracy of this model in raw numbers
+        Dataset<Row> predictions = model.transform(testData);
+
+        System.out.println("Testing completed!");
+        System.out.println("Calculating RMSE...");
+
+        //Show first 20 rows of relevant data
+        predictions.select("prediction", "label", "features").show(20);
+
+        //Take the weather data (named label) and the test data comparison to calculate a Root Means Squared Error
+        RegressionEvaluator evaluator = new RegressionEvaluator().setLabelCol("label").setPredictionCol("prediction").setMetricName("rmse");
+
         double rmse = evaluator.evaluate(predictions);
-        System.out.println("Root Mean Squared Error (RMSE) on test data = " + rmse);
+        System.out.println("Root Mean Squared Error = " + rmse);
 
         //RandomForestRegressionModel rfModel = (RandomForestRegressionModel)(model.stages()[1]);
         //System.out.println("Learned regression forest model:\n" + rfModel.toDebugString());

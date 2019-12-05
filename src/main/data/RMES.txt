@@ -1,1 +1,0 @@
-No adjustments 5-year run: 10.114896806145142 (1212.809 sec runtime)
