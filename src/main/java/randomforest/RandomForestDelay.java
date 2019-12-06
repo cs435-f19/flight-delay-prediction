@@ -98,7 +98,8 @@ public class RandomForestDelay {
         System.out.println("Training random forest...");
 
         //Create a RandomForest model using the weather data (named label) and the previously indexed features column
-        RandomForestRegressor rf = new RandomForestRegressor().setLabelCol("label").setFeaturesCol("indexedFeatures").setMaxBins(25).setSeed(12345);
+        //Adjust this by adding modifiers to the end. Ex: .setMaxBins(100)
+        RandomForestRegressor rf = new RandomForestRegressor().setLabelCol("label").setFeaturesCol("indexedFeatures").setSeed(12345);
 
         //Create a pipeline to allow the chaining of the indexer and random forest
         Pipeline pipeline = new Pipeline().setStages(new PipelineStage[] {featureIndexer, rf});
