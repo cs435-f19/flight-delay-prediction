@@ -8,6 +8,7 @@ import org.apache.spark.ml.feature.VectorIndexer;
 import org.apache.spark.ml.feature.VectorIndexerModel;
 import org.apache.spark.ml.regression.RandomForestRegressionModel;
 
+import org.apache.spark.mllib.tree.model.RandomForestModel;
 import org.apache.spark.sql.Dataset;
 import org.apache.spark.sql.Row;
 import org.apache.spark.sql.SparkSession;
@@ -17,6 +18,7 @@ import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Random;
 
 import org.apache.spark.ml.regression.RandomForestRegressor;
 
@@ -108,6 +110,11 @@ public class RandomForestDelay {
         PipelineModel model = pipeline.fit(trainData);
 
         System.out.println("Finished training random forest!");
+        System.out.println("Saving model to disk: " + args[1] + "...");
+
+        model.save(args[1]);
+
+        System.out.println("Finished saving model to disk!");
         System.out.println("Running random forest against test data...");
 
         //Do a test data comparison to see the accuracy of this model in raw numbers
